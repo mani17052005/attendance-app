@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>College Attendance App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 500px;
+      margin: 50px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 2px 2px 12px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 16px;
+    }
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>College Attendance</h1>
+
+  <form id="attendanceForm">
+    <input type="text" id="studentId" placeholder="Enter Student ID (e.g., SEC23AM001)" required />
+    <input type="text" id="studentName" placeholder="Enter Student Name" required />
+    <button type="submit">Mark Present</button>
+  </form>
+
+  <p id="status"></p>
+
+  <script>
+    document.getElementById('attendanceForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const studentId = document.getElementById('studentId').value.trim().toUpperCase();
+      const studentName = document.getElementById('studentName').value.trim();
+
+      // Validate Student ID format and range
+      const idPattern = /^SEC23AM(\d{3})$/;
+      const match = studentId.match(idPattern);
+
+      if (!match) {
+        document.getElementById('status').innerText = "Invalid Student ID format.";
+        return;
+      }
+
+      const numberPart = parseInt(match[1], 10);
+
+      if (numberPart < 1 || numberPart > 120) {
+        document.getElementById('status').innerText = "Student ID out of allowed range (001 to 120).";
+        return;
+      }
+
+      if (!studentName) {
+        document.getElementById('status').innerText = "Please enter your name.";
+        return;
+      }
+
+      // Get public IP address
+      const res = await fetch('https://api.ipify.org?format=json');
+      const data = await res.json();
+      const clientIp = data.ip;
+
+      // College WiFi IP check
+      if (!clientIp.startsWith('136.232.10.')) {
+        document.getElementById('status').innerText = 'Connect to college WiFi to mark attendance.';
+        return;
+      }
+
+      const formData = new URLSearchParams();
+      formData.append('studentId', studentId);
+      formData.append('studentName', studentName);
+
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbyVBNUVk46hwuJzUkRIVp-yRO3KwqgSMh9U0SN8tLShHJkgbNJ1zkGMmwzpknNbVc3O/exec';
+
+      try {
+        const response = await fetch(scriptUrl, {
+          method: 'POST',
+          body: formData
+        });
+
+        const text = await response.text();
+        document.getElementById('status').innerText = text;
+      } catch (err) {
+        document.getElementById('status').innerText = 'Error submitting attendance. Try again.';
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>
