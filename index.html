@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>College Attendance App</title>
   <style>
     body {
@@ -27,6 +27,7 @@
       margin-top: 20px;
       font-weight: bold;
       text-align: center;
+      min-height: 1.2em;
     }
   </style>
 </head>
@@ -44,7 +45,10 @@
   <script>
     document.getElementById('attendanceForm').addEventListener('submit', async function(e) {
       e.preventDefault();
-      
+
+      const statusEl = document.getElementById('status');
+      statusEl.innerText = '';
+
       const studentId = document.getElementById('studentId').value.trim().toUpperCase();
       const studentName = document.getElementById('studentName').value.trim();
 
@@ -53,50 +57,72 @@
       const match = studentId.match(idPattern);
 
       if (!match) {
-        document.getElementById('status').innerText = "Invalid Student ID format.";
+        statusEl.innerText = "Invalid Student ID format.";
         return;
       }
 
       const numberPart = parseInt(match[1], 10);
 
       if (numberPart < 1 || numberPart > 120) {
-        document.getElementById('status').innerText = "Student ID out of allowed range (001 to 120).";
+        statusEl.innerText = "Student ID out of allowed range (001 to 120).";
         return;
       }
 
       if (!studentName) {
-        document.getElementById('status').innerText = "Please enter your name.";
+        statusEl.innerText = "Please enter your name.";
         return;
       }
 
-      // Get public IP address
-      const res = await fetch('https://api.ipify.org?format=json');
-      const data = await res.json();
-      const clientIp = data.ip;
+      // Check localStorage for last attendance timestamp (per device restriction)
+      const lastMarked = localStorage.getItem('lastAttendanceTimestamp');
+      const now = Date.now();
 
-      // College WiFi IP check
-      if (!clientIp.startsWith('136.232.10.')) {
-        document.getElementById('status').innerText = 'Connect to college WiFi to mark attendance.';
-        return;
+      if (lastMarked) {
+        const diffMinutes = (now - parseInt(lastMarked, 10)) / (1000 * 60);
+        if (diffMinutes < 60) {
+          statusEl.innerText = `You can mark attendance only once per hour. Please try after ${Math.ceil(60 - diffMinutes)} minutes.`;
+          return;
+        }
       }
-
-      const formData = new URLSearchParams();
-      formData.append('studentId', studentId);
-      formData.append('studentName', studentName);
-
-      const scriptUrl = 'https://script.google.com/macros/s/AKfycbyVBNUVk46hwuJzUkRIVp-yRO3KwqgSMh9U0SN8tLShHJkgbNJ1zkGMmwzpknNbVc3O/exec';
 
       try {
+        // Get public IP address to verify connected to college WiFi
+        const resIp = await fetch('https://api.ipify.org?format=json');
+        const dataIp = await resIp.json();
+        const clientIp = dataIp.ip;
+
+        // College WiFi IP check (adjust this subnet if needed)
+        if (!clientIp.startsWith('136.232.10.')) {
+          statusEl.innerText = 'Connect to college WiFi to mark attendance.';
+          return;
+        }
+
+        // Prepare form data with client IP as well
+        const formData = new URLSearchParams();
+        formData.append('studentId', studentId);
+        formData.append('studentName', studentName);
+        formData.append('clientIp', clientIp);
+
+        // Your deployed Google Apps Script Web App URL
+        const scriptUrl = 'https://script.google.com/macros/s/AKfycbyVBNUVk46hwuJzUkRIVp-yRO3KwqgSMh9U0SN8tLShHJkgbNJ1zkGMmwzpknNbVc3O/exec';
+
         const response = await fetch(scriptUrl, {
           method: 'POST',
           body: formData
         });
 
         const text = await response.text();
-        document.getElementById('status').innerText = text;
+
+        if (response.ok) {
+          // On success, update localStorage timestamp
+          localStorage.setItem('lastAttendanceTimestamp', now.toString());
+        }
+
+        statusEl.innerText = text;
+
       } catch (err) {
-        document.getElementById('status').innerText = 'Error submitting attendance. Try again.';
         console.error(err);
+        statusEl.innerText = 'Error submitting attendance. Try again.';
       }
     });
   </script>
