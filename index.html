@@ -134,7 +134,7 @@
       const attendanceKey = `attendance_${dateKey}_interval${currentIntervalIndex}`;
 
       if (localStorage.getItem(attendanceKey)) {
-        statusEl.innerText = "You have already marked attendance in this time interval.";
+        statusEl.innerText = "You have already marked attendance in this period.";
         submitBtn.disabled = false;
         return;
       }
@@ -189,3 +189,4 @@
   </script>
 </body>
 </html>
+
