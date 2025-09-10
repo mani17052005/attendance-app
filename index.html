@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>College Attendance App</title>
   <style>
     body {
@@ -12,21 +13,41 @@
       padding: 20px;
       border: 1px solid #ddd;
       border-radius: 8px;
-      box-shadow: 2px 2px 12px rgba(0,0,0,0.1);
+      box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
     }
+
     h1 {
       text-align: center;
     }
-    input, button {
+
+    label {
+      font-weight: bold;
+      margin-top: 10px;
+      display: block;
+    }
+
+    input,
+    button {
       width: 100%;
       padding: 10px;
-      margin: 10px 0;
+      margin: 6px 0 12px 0;
       font-size: 16px;
+      box-sizing: border-box;
     }
+
     button:disabled {
       background-color: #ccc;
       cursor: not-allowed;
     }
+
+    #studentName {
+      font-weight: bold;
+      min-height: 1.2em;
+      color: #333;
+      margin-top: -10px;
+      margin-bottom: 10px;
+    }
+
     #status {
       margin-top: 20px;
       font-weight: bold;
@@ -35,158 +56,133 @@
     }
   </style>
 </head>
+
 <body>
   <h1>College Attendance</h1>
 
-  <form id="attendanceForm">
-    <input type="text" id="studentId" placeholder="Enter Student ID (e.g., SEC23AM001)" required />
-    <input type="text" id="studentName" placeholder="Enter Student Name" required />
+  <form id="attendanceForm" autocomplete="off">
+    <label for="registerNumber">Register Number:</label>
+    <input type="text" id="registerNumber" name="registerNumber" placeholder="Enter Register Number" required />
+    <div id="studentName"></div>
     <button type="submit">Mark Present</button>
   </form>
 
   <p id="status" aria-live="polite"></p>
 
   <script>
-    document.getElementById('attendanceForm').addEventListener('submit', async function(e) {
+    const registerMap = new Map([
+      ["2303412514822002", "ABINAYA R"],
+      ["2303412514822003", "ABIRAMI S"],
+      // ... other student mappings ...
+      ["2303412514821119", "VIJAYAKUMARAN K"]
+    ]);
+
+    const intervals = [
+      [9, 0, 9, 50],
+      [9, 51, 10, 40],
+      [10, 56, 11, 45],
+      [11, 46, 12, 35],
+      [13, 26, 14, 15],
+      [14, 16, 15, 6],
+      [15, 6, 16, 0],
+    ];
+
+    function timeToMinutes(h, m) {
+      return h * 60 + m;
+    }
+
+    const registerInput = document.getElementById("registerNumber");
+    const studentNameDiv = document.getElementById("studentName");
+    const statusEl = document.getElementById("status");
+
+    registerInput.addEventListener("input", () => {
+      const val = registerInput.value.trim();
+      studentNameDiv.textContent = registerMap.get(val) || "";
+    });
+
+    document.getElementById("attendanceForm").addEventListener("submit", async function (e) {
       e.preventDefault();
-
-      const statusEl = document.getElementById('status');
-      statusEl.innerText = '';
-
+      statusEl.textContent = "Submitting...";
       const submitBtn = e.target.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
 
-      const studentId = document.getElementById('studentId').value.trim().toUpperCase();
-      const studentName = document.getElementById('studentName').value.trim();
-
-      // Validate Student ID format and range
-      const idPattern = /^SEC23AM(\d{3})$/;
-      const match = studentId.match(idPattern);
-
-      if (!match) {
-        statusEl.innerText = "Invalid Student ID format.";
+      const registerVal = registerInput.value.trim();
+      if (!registerVal || !registerMap.has(registerVal)) {
+        statusEl.textContent = "Invalid Register Number.";
         submitBtn.disabled = false;
         return;
       }
 
-      const numberPart = parseInt(match[1], 10);
-
-      if (numberPart < 1 || numberPart > 120) {
-        statusEl.innerText = "Student ID out of allowed range (001 to 120).";
-        submitBtn.disabled = false;
-        return;
-      }
-
-      if (!studentName) {
-        statusEl.innerText = "Please enter your name.";
-        submitBtn.disabled = false;
-        return;
-      }
-
-      // Check day of week (0=Sunday, 1=Monday,...6=Saturday)
+      const studentName = registerMap.get(registerVal);
       const now = new Date();
       const day = now.getDay();
       if (day === 0 || day === 6) {
-        statusEl.innerText = "Attendance can be marked only Monday to Friday.";
+        statusEl.textContent = "Attendance can be marked Monday to Friday.";
         submitBtn.disabled = false;
         return;
       }
 
-      // Define intervals as [startHour, startMinute, endHour, endMinute]
-      const intervals = [
-        [9, 0, 9, 50],     // 9:00 AM - 9:50 AM
-        [9, 51, 10, 40],   // 9:51 AM - 10:40 AM
-        [10, 56, 11, 45],  // 10:56 AM - 11:45 AM
-        [11, 46, 12, 35],  // 11:46 AM - 12:35 PM
-        [13, 26, 14, 15],  // 1:26 PM - 2:15 PM
-        [14, 16, 15, 6],   // 2:16 PM - 3:06 PM
-        [15, 6, 16, 0]     // 3:06 PM - 4:00 PM
-      ];
-
-      // Helper to convert time to minutes from midnight
-      function timeToMinutes(h, m) {
-        return h * 60 + m;
-      }
-
       const nowMinutes = now.getHours() * 60 + now.getMinutes();
-
-      // Find current interval index
-      let currentIntervalIndex = -1;
+      let intervalIndex = -1;
       for (let i = 0; i < intervals.length; i++) {
         const [sh, sm, eh, em] = intervals[i];
-        const start = timeToMinutes(sh, sm);
-        const end = timeToMinutes(eh, em);
-        if (nowMinutes >= start && nowMinutes <= end) {
-          currentIntervalIndex = i;
+        if (nowMinutes >= timeToMinutes(sh, sm) && nowMinutes <= timeToMinutes(eh, em)) {
+          intervalIndex = i;
           break;
         }
       }
 
-      if (currentIntervalIndex === -1) {
-        statusEl.innerText = "Attendance can only be marked during specified time intervals.";
+      if (intervalIndex === -1) {
+        statusEl.textContent = "Outside allowed time intervals.";
         submitBtn.disabled = false;
         return;
       }
 
-      // Use a key in localStorage to track attendance per day and interval
-      // Format: attendance_YYYYMMDD_intervalIndex
-      const dateKey = now.toISOString().slice(0,10).replace(/-/g, ''); // e.g., 20240605
-      const attendanceKey = `attendance_${dateKey}_interval${currentIntervalIndex}`;
-
+      const dateKey = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const attendanceKey = `attendance_${dateKey}_interval${intervalIndex}_${registerVal}`;
       if (localStorage.getItem(attendanceKey)) {
-        statusEl.innerText = "You have already marked attendance in this period.";
+        statusEl.textContent = "Attendance already marked for this interval.";
         submitBtn.disabled = false;
         return;
       }
 
       try {
-        // Get public IP address to verify connected to college WiFi
-        const resIp = await fetch('https://api.ipify.org?format=json');
-        const dataIp = await resIp.json();
-        const clientIp = dataIp.ip;
+        const resIp = await fetch("https://api.ipify.org?format=json");
+        if (!resIp.ok) throw new Error("Failed to retrieve IP.");
+        const { ip: clientIp } = await resIp.json();
 
-        // Updated IP check
-        if (!clientIp.startsWith('136.232.10.146')) {
-          statusEl.innerText = 'Connect to college WiFi to mark attendance.';
+        if (!clientIp.startsWith("136.232.10.")) {
+          statusEl.textContent = "Must be connected to college WiFi.";
           submitBtn.disabled = false;
           return;
         }
 
-        // Prepare form data with client IP, interval, and date
         const formData = new URLSearchParams();
-        formData.append('studentId', studentId);
-        formData.append('studentName', studentName);
-        formData.append('clientIp', clientIp);
-        formData.append('intervalIndex', currentIntervalIndex);
-        formData.append('date', dateKey);
+        formData.append("registerNumber", registerVal);
+        formData.append("studentName", studentName);
+        formData.append("clientIp", clientIp);
 
-        // Your deployed Google Apps Script Web App URL
-        const scriptUrl = 'https://script.google.com/macros/s/AKfycbyVBNUVk46hwuJzUkRIVp-yRO3KwqgSMh9U0SN8tLShHJkgbNJ1zkGMmwzpknNbVc3O/exec';
+        const scriptUrl = "https://script.google.com/macros/s/1tADCef_YI9USBSHwaL0ZiI2NtBw2BskJtm9vjlyrSgRpd-egaxQKQCfd/exec";
 
-        const response = await fetch(scriptUrl, {
-          method: 'POST',
-          body: formData
-        });
+        const response = await fetch(scriptUrl, { method: "POST", body: formData });
+        const json = await response.json();
 
-        const text = await response.text();
-
-        if (response.ok) {
-          // Mark attendance for this interval
+        if (json.status === "success") {
           localStorage.setItem(attendanceKey, now.getTime().toString());
-          statusEl.innerText = text;
-          e.target.reset(); // Clear form on success
+          statusEl.textContent = json.message;
+          e.target.reset();
+          studentNameDiv.textContent = "";
         } else {
-          statusEl.innerText = `Error: ${text}`;
+          statusEl.textContent = `Error: ${json.message}`;
         }
-
       } catch (err) {
-        console.error(err);
-        statusEl.innerText = 'Error submitting attendance. Try again.';
+        statusEl.textContent = "Submission failed. Try again.";
       } finally {
         submitBtn.disabled = false;
+        setTimeout(() => statusEl.textContent = "", 5000);
       }
     });
   </script>
 </body>
-</html>
 
+</html>
