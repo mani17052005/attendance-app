@@ -23,6 +23,10 @@
       margin: 10px 0;
       font-size: 16px;
     }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
     #status {
       margin-top: 20px;
       font-weight: bold;
@@ -40,7 +44,7 @@
     <button type="submit">Mark Present</button>
   </form>
 
-  <p id="status"></p>
+  <p id="status" aria-live="polite"></p>
 
   <script>
     document.getElementById('attendanceForm').addEventListener('submit', async function(e) {
@@ -48,6 +52,9 @@
 
       const statusEl = document.getElementById('status');
       statusEl.innerText = '';
+
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
 
       const studentId = document.getElementById('studentId').value.trim().toUpperCase();
       const studentName = document.getElementById('studentName').value.trim();
@@ -58,6 +65,7 @@
 
       if (!match) {
         statusEl.innerText = "Invalid Student ID format.";
+        submitBtn.disabled = false;
         return;
       }
 
@@ -65,24 +73,70 @@
 
       if (numberPart < 1 || numberPart > 120) {
         statusEl.innerText = "Student ID out of allowed range (001 to 120).";
+        submitBtn.disabled = false;
         return;
       }
 
       if (!studentName) {
         statusEl.innerText = "Please enter your name.";
+        submitBtn.disabled = false;
         return;
       }
 
-      // Check localStorage for last attendance timestamp (per device restriction)
-      const lastMarked = localStorage.getItem('lastAttendanceTimestamp');
-      const now = Date.now();
+      // Check day of week (0=Sunday, 1=Monday,...6=Saturday)
+      const now = new Date();
+      const day = now.getDay();
+      if (day === 0 || day === 6) {
+        statusEl.innerText = "Attendance can be marked only Monday to Friday.";
+        submitBtn.disabled = false;
+        return;
+      }
 
-      if (lastMarked) {
-        const diffMinutes = (now - parseInt(lastMarked, 10)) / (1000 * 60);
-        if (diffMinutes < 60) {
-          statusEl.innerText = `You can mark attendance only once per hour. Please try after ${Math.ceil(60 - diffMinutes)} minutes.`;
-          return;
+      // Define intervals as [startHour, startMinute, endHour, endMinute]
+      const intervals = [
+        [9, 0, 9, 50],     // 9:00 AM - 9:50 AM
+        [9, 51, 10, 40],   // 9:51 AM - 10:40 AM
+        [10, 56, 11, 45],  // 10:56 AM - 11:45 AM
+        [11, 46, 12, 35],  // 11:46 AM - 12:35 PM
+        [13, 26, 14, 15],  // 1:26 PM - 2:15 PM
+        [14, 16, 15, 6],   // 2:16 PM - 3:06 PM
+        [15, 6, 16, 0]     // 3:06 PM - 4:00 PM
+      ];
+
+      // Helper to convert time to minutes from midnight
+      function timeToMinutes(h, m) {
+        return h * 60 + m;
+      }
+
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+      // Find current interval index
+      let currentIntervalIndex = -1;
+      for (let i = 0; i < intervals.length; i++) {
+        const [sh, sm, eh, em] = intervals[i];
+        const start = timeToMinutes(sh, sm);
+        const end = timeToMinutes(eh, em);
+        if (nowMinutes >= start && nowMinutes <= end) {
+          currentIntervalIndex = i;
+          break;
         }
+      }
+
+      if (currentIntervalIndex === -1) {
+        statusEl.innerText = "Attendance can only be marked during specified time intervals.";
+        submitBtn.disabled = false;
+        return;
+      }
+
+      // Use a key in localStorage to track attendance per day and interval
+      // Format: attendance_YYYYMMDD_intervalIndex
+      const dateKey = now.toISOString().slice(0,10).replace(/-/g, ''); // e.g., 20240605
+      const attendanceKey = `attendance_${dateKey}_interval${currentIntervalIndex}`;
+
+      if (localStorage.getItem(attendanceKey)) {
+        statusEl.innerText = "You have already marked attendance in this time interval.";
+        submitBtn.disabled = false;
+        return;
       }
 
       try {
@@ -91,17 +145,20 @@
         const dataIp = await resIp.json();
         const clientIp = dataIp.ip;
 
-        // College WiFi IP check (adjust this subnet if needed)
-        if (!clientIp.startsWith('163.61.252.38')) {
+        // Updated IP check
+        if (!clientIp.startsWith('136.232.10.146')) {
           statusEl.innerText = 'Connect to college WiFi to mark attendance.';
+          submitBtn.disabled = false;
           return;
         }
 
-        // Prepare form data with client IP as well
+        // Prepare form data with client IP, interval, and date
         const formData = new URLSearchParams();
         formData.append('studentId', studentId);
         formData.append('studentName', studentName);
         formData.append('clientIp', clientIp);
+        formData.append('intervalIndex', currentIntervalIndex);
+        formData.append('date', dateKey);
 
         // Your deployed Google Apps Script Web App URL
         const scriptUrl = 'https://script.google.com/macros/s/AKfycbyVBNUVk46hwuJzUkRIVp-yRO3KwqgSMh9U0SN8tLShHJkgbNJ1zkGMmwzpknNbVc3O/exec';
@@ -114,18 +171,21 @@
         const text = await response.text();
 
         if (response.ok) {
-          // On success, update localStorage timestamp
-          localStorage.setItem('lastAttendanceTimestamp', now.toString());
+          // Mark attendance for this interval
+          localStorage.setItem(attendanceKey, now.getTime().toString());
+          statusEl.innerText = text;
+          e.target.reset(); // Clear form on success
+        } else {
+          statusEl.innerText = `Error: ${text}`;
         }
-
-        statusEl.innerText = text;
 
       } catch (err) {
         console.error(err);
         statusEl.innerText = 'Error submitting attendance. Try again.';
+      } finally {
+        submitBtn.disabled = false;
       }
     });
   </script>
 </body>
 </html>
-
