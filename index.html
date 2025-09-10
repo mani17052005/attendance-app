@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -15,17 +14,14 @@
       border-radius: 8px;
       box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
     }
-
     h1 {
       text-align: center;
     }
-
     label {
       font-weight: bold;
       margin-top: 10px;
       display: block;
     }
-
     input,
     button {
       width: 100%;
@@ -34,12 +30,10 @@
       font-size: 16px;
       box-sizing: border-box;
     }
-
     button:disabled {
       background-color: #ccc;
       cursor: not-allowed;
     }
-
     #studentName {
       font-weight: bold;
       min-height: 1.2em;
@@ -47,7 +41,6 @@
       margin-top: -10px;
       margin-bottom: 10px;
     }
-
     #status {
       margin-top: 20px;
       font-weight: bold;
@@ -56,35 +49,99 @@
     }
   </style>
 </head>
-
 <body>
   <h1>College Attendance</h1>
 
   <form id="attendanceForm" autocomplete="off">
-    <label for="registerNumber">Register Number:</label>
-    <input type="text" id="registerNumber" name="registerNumber" placeholder="Enter Register Number" required />
+    <label for="registerNumber">Register Number (e.g., 2303412514822002):</label>
+    <input
+      type="text"
+      id="registerNumber"
+      name="registerNumber"
+      placeholder="Enter Register Number"
+      required
+    />
     <div id="studentName"></div>
+
     <button type="submit">Mark Present</button>
   </form>
 
   <p id="status" aria-live="polite"></p>
 
   <script>
+    // Map of RegisterNumber -> StudentName (your full list)
     const registerMap = new Map([
       ["2303412514822002", "ABINAYA R"],
       ["2303412514822003", "ABIRAMI S"],
-      // ... other student mappings ...
+      ["2303412514822014", "ATSHAYA S"],
+      ["2303412514822035", "HARISSHANI VENKATESAN"],
+      ["2303412514822036", "HARSHA KEERTHANA NARAYANAN"],
+      ["2303412514822040", "JAYASHREE SATHISH"],
+      ["2303412514822042", "JUSVIKA J"],
+      ["2303412514822044", "KAVYA M"],
+      ["2303412514822046", "KIRUTHIKA J"],
+      ["2303412514822052", "MAGESHWARI M"],
+      ["2303412514822054", "MEENAL V"],
+      ["2303412514822056", "MITHRA RS"],
+      ["2303412514822061", "MONASHINI S"],
+      ["2303412514822066", "NANDHINI S"],
+      ["2303412514822069", "NIRANJANA S"],
+      ["2303412514822070", "PASUNURI HARSHINI"],
+      ["2303412514822076", "PREETHINGEESWARI J"],
+      ["2303412514822077", "PRETHIKSHA J"],
+      ["2303412514822083", "REENA DEVI P"],
+      ["2303412514822094", "SANKARI RV"],
+      ["2303412514822096", "SASTI HASINI K"],
+      ["2303412514822106", "SUWETHA K"],
+      ["2303412514822111", "VAISHNAVI R"],
+      ["2303412514821001", "ABHIRAM R"],
+      ["2303412514821004", "ABISHEK GJ"],
+      ["2303412514821006", "AKASH B"],
+      ["2303412514821011", "ARUNMOZHI A"],
+      ["2303412514821019", "BHARATH KUMAR R"],
+      ["2303412514821020", "CRISPIN R"],
+      ["2303412514821022", "DEVADHARSHAN S"],
+      ["2303412514821023", "DHAKSHANAMOORATHY TS"],
+      ["2303412514821026", "FRIDO GLENN R"],
+      ["2303412514821028", "GENGARAJ P"],
+      ["2303412514821030", "GUNASEKARAN P"],
+      ["2303412514821034", "HARIPRASANTH M"],
+      ["2303412514821041", "JOTHIESHVARAN T"],
+      ["2303412514821043", "KARTHIK S"],
+      ["2303412514821047", "KISHORE KUMAR PD"],
+      ["2303412514821049", "LAXMAN S"],
+      ["2303412514821053", "MANIKANDAN M"],
+      ["2303412514821057", "MOHAMED ADIL T"],
+      ["2303412514821058", "MOHAMED AZHARDEEN"],
+      ["2303412514821060", "MOHAN KRISHNAN S"],
+      ["2303412514821063", "MUTHU SELVAN V"],
+      ["2303412514821068", "NIKIL M"],
+      ["2303412514821074", "PRAVEEN V"],
+      ["2303412514821075", "PRAWIN KISHORE AR"],
+      ["2303412514821080", "RANJITH KUMAR S"],
+      ["2303412514821087", "RUBESH KANNAN BK"],
+      ["2303412514821090", "SAKTHI MANIKANDAN D"],
+      ["2303412514821092", "SANJAI KUMAR KS"],
+      ["2303412514821097", "SENTHIL RAMANATHAN RS"],
+      ["2303412514821098", "SHAILENDRA KRS"],
+      ["2303412514821099", "SHANTH S"],
+      ["2303412514821105", "SUDHARSHAN A"],
+      ["2303412514821107", "TARUN R"],
+      ["2303412514821109", "THARUN AM"],
+      ["2303412514821116", "VENKATESH K"],
+      ["2303412514821118", "VIJAY SRINIVAS RV"],
       ["2303412514821119", "VIJAYAKUMARAN K"]
     ]);
 
+    // Time intervals as [startHour, startMinute, endHour, endMinute]
     const intervals = [
-      [9, 0, 9, 50],
-      [9, 51, 10, 40],
-      [10, 56, 11, 45],
-      [11, 46, 12, 35],
-      [13, 26, 14, 15],
-      [14, 16, 15, 6],
-      [15, 6, 16, 0],
+      [9, 0, 9, 50], // 9:00 AM - 9:50 AM
+      [9, 51, 10, 40], // 9:51 AM - 10:40 AM
+      [10, 56, 11, 45], // 10:56 AM - 11:45 AM
+      [11, 46, 12, 35], // 11:46 AM - 12:35 PM
+      [13, 26, 14, 15], // 1:26 PM - 2:15 PM
+      [14, 16, 15, 6], // 2:16 PM - 3:06 PM
+      [15, 6, 16, 0], // 3:06 PM - 4:00 PM
     ];
 
     function timeToMinutes(h, m) {
@@ -95,94 +152,131 @@
     const studentNameDiv = document.getElementById("studentName");
     const statusEl = document.getElementById("status");
 
+    // Show student name when Register Number input changes
     registerInput.addEventListener("input", () => {
       const val = registerInput.value.trim();
-      studentNameDiv.textContent = registerMap.get(val) || "";
+      if (val && registerMap.has(val)) {
+        studentNameDiv.textContent = registerMap.get(val);
+      } else {
+        studentNameDiv.textContent = "";
+      }
     });
 
-    document.getElementById("attendanceForm").addEventListener("submit", async function (e) {
-      e.preventDefault();
-      statusEl.textContent = "Submitting...";
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
+    document
+      .getElementById("attendanceForm")
+      .addEventListener("submit", async function (e) {
+        e.preventDefault();
+        statusEl.textContent = "";
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
 
-      const registerVal = registerInput.value.trim();
-      if (!registerVal || !registerMap.has(registerVal)) {
-        statusEl.textContent = "Invalid Register Number.";
-        submitBtn.disabled = false;
-        return;
-      }
+        const registerVal = registerInput.value.trim();
 
-      const studentName = registerMap.get(registerVal);
-      const now = new Date();
-      const day = now.getDay();
-      if (day === 0 || day === 6) {
-        statusEl.textContent = "Attendance can be marked Monday to Friday.";
-        submitBtn.disabled = false;
-        return;
-      }
-
-      const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      let intervalIndex = -1;
-      for (let i = 0; i < intervals.length; i++) {
-        const [sh, sm, eh, em] = intervals[i];
-        if (nowMinutes >= timeToMinutes(sh, sm) && nowMinutes <= timeToMinutes(eh, em)) {
-          intervalIndex = i;
-          break;
-        }
-      }
-
-      if (intervalIndex === -1) {
-        statusEl.textContent = "Outside allowed time intervals.";
-        submitBtn.disabled = false;
-        return;
-      }
-
-      const dateKey = now.toISOString().slice(0, 10).replace(/-/g, "");
-      const attendanceKey = `attendance_${dateKey}_interval${intervalIndex}_${registerVal}`;
-      if (localStorage.getItem(attendanceKey)) {
-        statusEl.textContent = "Attendance already marked for this interval.";
-        submitBtn.disabled = false;
-        return;
-      }
-
-      try {
-        const resIp = await fetch("https://api.ipify.org?format=json");
-        if (!resIp.ok) throw new Error("Failed to retrieve IP.");
-        const { ip: clientIp } = await resIp.json();
-
-        if (!clientIp.startsWith("136.232.10.")) {
-          statusEl.textContent = "Must be connected to college WiFi.";
+        if (!registerVal) {
+          statusEl.textContent = "Please enter your Register Number.";
           submitBtn.disabled = false;
           return;
         }
 
-        const formData = new URLSearchParams();
-        formData.append("registerNumber", registerVal);
-        formData.append("studentName", studentName);
-        formData.append("clientIp", clientIp);
-
-        const scriptUrl = "https://script.google.com/macros/s/1tADCef_YI9USBSHwaL0ZiI2NtBw2BskJtm9vjlyrSgRpd-egaxQKQCfd/exec";
-
-        const response = await fetch(scriptUrl, { method: "POST", body: formData });
-        const json = await response.json();
-
-        if (json.status === "success") {
-          localStorage.setItem(attendanceKey, now.getTime().toString());
-          statusEl.textContent = json.message;
-          e.target.reset();
-          studentNameDiv.textContent = "";
-        } else {
-          statusEl.textContent = `Error: ${json.message}`;
+        if (!registerMap.has(registerVal)) {
+          statusEl.textContent = "Invalid Register Number.";
+          submitBtn.disabled = false;
+          return;
         }
-      } catch (err) {
-        statusEl.textContent = "Submission failed. Try again.";
-      } finally {
-        submitBtn.disabled = false;
-        setTimeout(() => statusEl.textContent = "", 5000);
-      }
-    });
+
+        const studentName = registerMap.get(registerVal);
+
+        // Check day of week (0=Sunday, 1=Monday,...6=Saturday)
+        const now = new Date();
+        const day = now.getDay();
+        if (day === 0 || day === 6) {
+          statusEl.textContent = "Attendance can be marked only Monday to Friday.";
+          submitBtn.disabled = false;
+          return;
+        }
+
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+        // Find current interval index
+        let currentIntervalIndex = -1;
+        for (let i = 0; i < intervals.length; i++) {
+          const [sh, sm, eh, em] = intervals[i];
+          const start = timeToMinutes(sh, sm);
+          const end = timeToMinutes(eh, em);
+          if (nowMinutes >= start && nowMinutes <= end) {
+            currentIntervalIndex = i;
+            break;
+          }
+        }
+
+        if (currentIntervalIndex === -1) {
+          statusEl.textContent =
+            "Attendance can only be marked during specified time intervals.";
+          submitBtn.disabled = false;
+          return;
+        }
+
+        // Use a key in localStorage to track attendance per day and interval
+        // Format: attendance_YYYYMMDD_intervalIndex_registerNumber
+        const dateKey = now.toISOString().slice(0, 10).replace(/-/g, ""); // e.g., 20240605
+        const attendanceKey =
+          "attendance_" + dateKey + "_interval" + currentIntervalIndex + "_" + registerVal;
+
+        if (localStorage.getItem(attendanceKey)) {
+          statusEl.textContent =
+            "You have already marked attendance in this time interval.";
+          submitBtn.disabled = false;
+          return;
+        }
+
+        try {
+          // Get public IP address to verify connected to college WiFi
+          const resIp = await fetch("https://api.ipify.org?format=json");
+          const dataIp = await resIp.json();
+          const clientIp = dataIp.ip;
+
+          // IP check (update as needed)
+          if (!clientIp.startsWith("136.232.10.146")) {
+            statusEl.textContent = "Connect to college WiFi to mark attendance.";
+            submitBtn.disabled = false;
+            return;
+          }
+
+          // Prepare form data with client IP, interval, date, register number, and student name
+          const formData = new URLSearchParams();
+          formData.append("registerNumber", registerVal);
+          formData.append("studentName", studentName);
+          formData.append("clientIp", clientIp);
+          formData.append("intervalIndex", currentIntervalIndex);
+          formData.append("date", dateKey);
+
+          // Your deployed Google Apps Script Web App URL
+          const scriptUrl =
+            "https://script.google.com/macros/s/AKfycbyVBNUVk46hwuJzUkRIVp-yRO3KwqgSMh9U0SN8tLShHJkgbNJ1zkGMmwzpknNbVc3O/exec";
+
+          const response = await fetch(scriptUrl, {
+            method: "POST",
+            body: formData,
+          });
+
+          const text = await response.text();
+
+          if (response.ok) {
+            // Mark attendance for this interval and student
+            localStorage.setItem(attendanceKey, now.getTime().toString());
+            statusEl.textContent = text;
+            e.target.reset();
+            studentNameDiv.textContent = "";
+          } else {
+            statusEl.textContent = `Error: ${text}`;
+          }
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = "Error submitting attendance. Try again.";
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
   </script>
 </body>
-
 </html>
