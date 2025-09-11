@@ -144,10 +144,6 @@
       [15, 6, 16, 0], // 3:06 PM - 4:00 PM
     ];
 
-    function timeToMinutes(h, m) {
-      return h * 60 + m;
-    }
-
     const registerInput = document.getElementById("registerNumber");
     const studentNameDiv = document.getElementById("studentName");
     const statusEl = document.getElementById("status");
@@ -201,8 +197,8 @@
         let currentIntervalIndex = -1;
         for (let i = 0; i < intervals.length; i++) {
           const [sh, sm, eh, em] = intervals[i];
-          const start = timeToMinutes(sh, sm);
-          const end = timeToMinutes(eh, em);
+          const start = sh * 60 + sm;
+          const end = eh * 60 + em;
           if (nowMinutes >= start && nowMinutes <= end) {
             currentIntervalIndex = i;
             break;
@@ -216,39 +212,13 @@
           return;
         }
 
-        // Use a key in localStorage to track attendance per day and interval
-        // Format: attendance_YYYYMMDD_intervalIndex_registerNumber
-        const dateKey = now.toISOString().slice(0, 10).replace(/-/g, ""); // e.g., 20240605
-        const attendanceKey =
-          "attendance_" + dateKey + "_interval" + currentIntervalIndex + "_" + registerVal;
-
-        if (localStorage.getItem(attendanceKey)) {
-          statusEl.textContent =
-            "You have already marked attendance in this time interval.";
-          submitBtn.disabled = false;
-          return;
-        }
-
         try {
-          // Get public IP address to verify connected to college WiFi
-          const resIp = await fetch("https://api.ipify.org?format=json");
-          const dataIp = await resIp.json();
-          const clientIp = dataIp.ip;
-
-          // IP check (update as needed)
-          if (!clientIp.startsWith("136.232.10.146")) {
-            statusEl.textContent = "Connect to college WiFi to mark attendance.";
-            submitBtn.disabled = false;
-            return;
-          }
-
-          // Prepare form data with client IP, interval, date, register number, and student name
+          // Prepare form data WITHOUT clientIp
           const formData = new URLSearchParams();
           formData.append("registerNumber", registerVal);
           formData.append("studentName", studentName);
-          formData.append("clientIp", clientIp);
           formData.append("intervalIndex", currentIntervalIndex);
-          formData.append("date", dateKey);
+          formData.append("date", now.toISOString().slice(0, 10).replace(/-/g, ""));
 
           // Your deployed Google Apps Script Web App URL
           const scriptUrl =
@@ -259,16 +229,20 @@
             body: formData,
           });
 
-          const text = await response.text();
+          const json = await response.json();
 
-          if (response.ok) {
+          if (json.status === "success") {
             // Mark attendance for this interval and student
+            const dateKey = now.toISOString().slice(0, 10).replace(/-/g, "");
+            const attendanceKey =
+              "attendance_" + dateKey + "_interval" + currentIntervalIndex + "_" + registerVal;
             localStorage.setItem(attendanceKey, now.getTime().toString());
-            statusEl.textContent = text;
+
+            statusEl.textContent = json.message;
             e.target.reset();
             studentNameDiv.textContent = "";
           } else {
-            statusEl.textContent = `Error: ${text}`;
+            statusEl.textContent = `Error: ${json.message}`;
           }
         } catch (err) {
           console.error(err);
