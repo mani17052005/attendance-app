@@ -13,9 +13,11 @@
       border: 1px solid #ddd;
       border-radius: 8px;
       box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
+      background-color: #fafafa;
     }
     h1 {
       text-align: center;
+      margin-bottom: 1rem;
     }
     label {
       font-weight: bold;
@@ -29,6 +31,25 @@
       margin: 6px 0 12px 0;
       font-size: 16px;
       box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      transition: border-color 0.3s ease;
+    }
+    input:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 4px;
+      transition: background-color 0.3s ease;
+    }
+    button:hover:not(:disabled) {
+      background-color: #0056b3;
     }
     button:disabled {
       background-color: #ccc;
@@ -36,40 +57,55 @@
     }
     #studentName {
       font-weight: bold;
-      min-height: 1.2em;
+      min-height: 1.5em;
       color: #333;
       margin-top: -10px;
       margin-bottom: 10px;
+      font-size: 1.1rem;
     }
     #status {
       margin-top: 20px;
       font-weight: bold;
       text-align: center;
       min-height: 1.2em;
+      font-size: 1rem;
+    }
+    #status.success {
+      color: green;
+    }
+    #status.error {
+      color: red;
     }
   </style>
 </head>
 <body>
   <h1>College Attendance</h1>
 
-  <form id="attendanceForm" autocomplete="off">
-    <label for="registerNumber">Register Number (e.g., 2303412514822002):</label>
+  <form id="attendanceForm" autocomplete="off" aria-describedby="studentName">
+    <label for="registerNumber">Register Number (16 digits):</label>
     <input
       type="text"
       id="registerNumber"
       name="registerNumber"
       placeholder="Enter Register Number"
       required
+      pattern="\d{16}"
+      maxlength="16"
+      inputmode="numeric"
+      spellcheck="false"
+      aria-describedby="studentName"
+      aria-live="polite"
+      aria-atomic="true"
     />
-    <div id="studentName"></div>
+    <div id="studentName" aria-live="polite" aria-atomic="true"></div>
 
     <button type="submit">Mark Present</button>
   </form>
 
-  <p id="status" aria-live="polite"></p>
+  <p id="status" aria-live="polite" aria-atomic="true"></p>
 
   <script>
-    // Map of RegisterNumber -> StudentName (your full list)
+    // Register number to student name mapping
     const registerMap = new Map([
       ["2303412514822002", "ABINAYA R"],
       ["2303412514822003", "ABIRAMI S"],
@@ -133,124 +169,167 @@
       ["2303412514821119", "VIJAYAKUMARAN K"]
     ]);
 
-    // Time intervals as [startHour, startMinute, endHour, endMinute]
+    // Attendance time intervals (24-hour format)
+    // Each interval: [startHour, startMinute, endHour, endMinute]
     const intervals = [
-      [9, 0, 9, 50], // 9:00 AM - 9:50 AM
-      [9, 51, 10, 40], // 9:51 AM - 10:40 AM
-      [10, 56, 11, 45], // 10:56 AM - 11:45 AM
-      [11, 46, 12, 35], // 11:46 AM - 12:35 PM
-      [13, 26, 14, 15], // 1:26 PM - 2:15 PM
-      [14, 16, 15, 6], // 2:16 PM - 3:06 PM
-      [15, 6, 16, 0], // 3:06 PM - 4:00 PM
+      [9, 0, 9, 50],
+      [9, 51, 10, 40],
+      [10, 56, 11, 45],
+      [11, 46, 12, 35],
+      [13, 26, 14, 15],
+      [14, 16, 15, 6],
+      [15, 6, 16, 0]
     ];
 
     const registerInput = document.getElementById("registerNumber");
     const studentNameDiv = document.getElementById("studentName");
     const statusEl = document.getElementById("status");
+    const attendanceForm = document.getElementById("attendanceForm");
 
-    // Show student name when Register Number input changes
-    registerInput.addEventListener("input", () => {
+    // Debounce function to limit frequency of student name lookup
+    function debounce(func, wait) {
+      let timeout;
+      return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
+    // Show student name based on register number input
+    const showStudentName = debounce(() => {
       const val = registerInput.value.trim();
-      if (val && registerMap.has(val)) {
+      if (val.length === 16 && registerMap.has(val)) {
         studentNameDiv.textContent = registerMap.get(val);
       } else {
         studentNameDiv.textContent = "";
       }
+    }, 300);
+
+    registerInput.addEventListener("input", () => {
+      // Allow only digits
+      registerInput.value = registerInput.value.replace(/\D/g, "").slice(0, 16);
+      showStudentName();
     });
 
-    document
-      .getElementById("attendanceForm")
-      .addEventListener("submit", async function (e) {
-        e.preventDefault();
-        statusEl.textContent = "";
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
+    attendanceForm.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      statusEl.textContent = "";
+      statusEl.className = "";
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
 
-        const registerVal = registerInput.value.trim();
+      const registerVal = registerInput.value.trim();
 
-        if (!registerVal) {
-          statusEl.textContent = "Please enter your Register Number.";
-          submitBtn.disabled = false;
-          return;
+      if (registerVal.length !== 16) {
+        statusEl.textContent = "Please enter a valid 16-digit Register Number.";
+        statusEl.classList.add("error");
+        submitBtn.disabled = false;
+        return;
+      }
+
+      if (!registerMap.has(registerVal)) {
+        statusEl.textContent = "Invalid Register Number.";
+        statusEl.classList.add("error");
+        submitBtn.disabled = false;
+        return;
+      }
+
+      // Fetch client public IP
+      let clientIp;
+      try {
+        const ipResponse = await fetch("https://api.ipify.org?format=json");
+        const ipData = await ipResponse.json();
+        clientIp = ipData.ip;
+      } catch (ipErr) {
+        console.error("Failed to fetch IP:", ipErr);
+        statusEl.textContent = "Unable to verify IP address. Please try again.";
+        statusEl.classList.add("error");
+        submitBtn.disabled = false;
+        return;
+      }
+
+      const studentName = registerMap.get(registerVal);
+
+      // Check day of week (0=Sunday,...6=Saturday)
+      const now = new Date();
+      const day = now.getDay();
+      if (day === 0) {
+        statusEl.textContent = "Attendance can be marked only Monday to Saturday.";
+        statusEl.classList.add("error");
+        submitBtn.disabled = false;
+        return;
+      }
+
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+      // Find current interval index
+      let currentIntervalIndex = -1;
+      for (let i = 0; i < intervals.length; i++) {
+        const [sh, sm, eh, em] = intervals[i];
+        const start = sh * 60 + sm;
+        const end = eh * 60 + em;
+        if (nowMinutes >= start && nowMinutes <= end) {
+          currentIntervalIndex = i;
+          break;
         }
+      }
 
-        if (!registerMap.has(registerVal)) {
-          statusEl.textContent = "Invalid Register Number.";
-          submitBtn.disabled = false;
-          return;
+      if (currentIntervalIndex === -1) {
+        statusEl.textContent =
+          "Attendance can only be marked during specified time intervals.";
+        statusEl.classList.add("error");
+        submitBtn.disabled = false;
+        return;
+      }
+
+      // Prevent multiple attendance marking for same interval and student
+      const dateKey = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const attendanceKey =
+        `attendance_${dateKey}_interval${currentIntervalIndex}_${registerVal}`;
+
+      if (localStorage.getItem(attendanceKey)) {
+        statusEl.textContent = "Attendance already marked for this interval.";
+        statusEl.classList.add("error");
+        submitBtn.disabled = false;
+        return;
+      }
+
+      try {
+        const formData = new URLSearchParams();
+        formData.append("registerNumber", registerVal);
+        formData.append("studentName", studentName);
+        formData.append("intervalIndex", currentIntervalIndex);
+        formData.append("date", dateKey);
+        formData.append("clientIp", clientIp); // Send client IP for server verification
+
+        const scriptUrl =
+          "https://script.google.com/macros/s/AKfycbyVBNUVk46hwuJzUkRIVp-yRO3KwqgSMh9U0SN8tLShHJkgbNJ1zkGMmwzpknNbVc3O/exec";
+
+        const response = await fetch(scriptUrl, {
+          method: "POST",
+          body: formData,
+        });
+
+        const json = await response.json();
+
+        if (json.status === "success") {
+          localStorage.setItem(attendanceKey, now.getTime().toString());
+          statusEl.textContent = json.message || "Attendance marked successfully.";
+          statusEl.classList.add("success");
+          attendanceForm.reset();
+          studentNameDiv.textContent = "";
+        } else {
+          statusEl.textContent = `Error: ${json.message || "Unknown error."}`;
+          statusEl.classList.add("error");
         }
-
-        const studentName = registerMap.get(registerVal);
-
-        // Check day of week (0=Sunday, 1=Monday,...6=Saturday)
-        const now = new Date();
-        const day = now.getDay();
-        if (day === 0 || day === 6) {
-          statusEl.textContent = "Attendance can be marked only Monday to Friday.";
-          submitBtn.disabled = false;
-          return;
-        }
-
-        const nowMinutes = now.getHours() * 60 + now.getMinutes();
-
-        // Find current interval index
-        let currentIntervalIndex = -1;
-        for (let i = 0; i < intervals.length; i++) {
-          const [sh, sm, eh, em] = intervals[i];
-          const start = sh * 60 + sm;
-          const end = eh * 60 + em;
-          if (nowMinutes >= start && nowMinutes <= end) {
-            currentIntervalIndex = i;
-            break;
-          }
-        }
-
-        if (currentIntervalIndex === -1) {
-          statusEl.textContent =
-            "Attendance can only be marked during specified time intervals.";
-          submitBtn.disabled = false;
-          return;
-        }
-
-        try {
-          // Prepare form data WITHOUT clientIp
-          const formData = new URLSearchParams();
-          formData.append("registerNumber", registerVal);
-          formData.append("studentName", studentName);
-          formData.append("intervalIndex", currentIntervalIndex);
-          formData.append("date", now.toISOString().slice(0, 10).replace(/-/g, ""));
-
-          // Your deployed Google Apps Script Web App URL
-          const scriptUrl =
-            "https://script.google.com/macros/s/AKfycbyVBNUVk46hwuJzUkRIVp-yRO3KwqgSMh9U0SN8tLShHJkgbNJ1zkGMmwzpknNbVc3O/exec";
-
-          const response = await fetch(scriptUrl, {
-            method: "POST",
-            body: formData,
-          });
-
-          const json = await response.json();
-
-          if (json.status === "success") {
-            // Mark attendance for this interval and student
-            const dateKey = now.toISOString().slice(0, 10).replace(/-/g, "");
-            const attendanceKey =
-              "attendance_" + dateKey + "_interval" + currentIntervalIndex + "_" + registerVal;
-            localStorage.setItem(attendanceKey, now.getTime().toString());
-
-            statusEl.textContent = json.message;
-            e.target.reset();
-            studentNameDiv.textContent = "";
-          } else {
-            statusEl.textContent = `Error: ${json.message}`;
-          }
-        } catch (err) {
-          console.error(err);
-          statusEl.textContent = "Error submitting attendance. Try again.";
-        } finally {
-          submitBtn.disabled = false;
-        }
-      });
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Error submitting attendance. Please try again.";
+        statusEl.classList.add("error");
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
